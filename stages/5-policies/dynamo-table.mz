@@ -1,0 +1,154 @@
+
+resource "maeztro" "data_tier" {
+  name = "Data Tier"
+  position_in_parent = [ 320, 100 ]    # this line may be absent or have different values; it is only used for the UI
+}
+
+maeztro extend resource "aws_dynamodb_table.data_table" {
+  name = "Data Table"
+  parent = maeztro.data_tier
+
+  sensor "data_count" {
+    steps = [
+      {
+        step: "shell aws dynamodb scan --table-name ${self.name} --select COUNT"
+        env:  local.aws_cli_env
+      },
+      "transform ${stdout} | type map",
+      "return ${Count}"
+    ]
+    period = "10s"
+  }
+  widget sensor "data_count" {
+    label = "Records"
+  }
+
+  sensor "avg_consumed_read" {
+    steps = [
+      "let now = ${workflow.util.now_instant}",
+      "transform ${now} | to_string | set now_str",
+      "let duration five_minutes = 5m",
+      "let five_minutes_ago = ${now} - ${five_minutes}",
+      "transform ${five_minutes_ago} | to_string | set five_minutes_ago_str",
+      {
+        step: "shell"
+        command: join(" ", ["aws cloudwatch get-metric-statistics",
+          "--namespace AWS/DynamoDB  --metric-name ConsumedReadCapacityUnits",
+          "--dimensions Name=TableName,Value=${self.name}  --statistics=Average",
+          "--start-time ${five_minutes_ago_str} --end-time ${now_str} --period 300"])
+        env: local.aws_cli_env
+      },
+      "transform ${stdout} | type map | set aws_stats",
+      "return ${aws_stats.Datapoints[0].Average}"
+    ]
+    period = "10s"
+  }
+  widget sensor "avg_consumed_read" {
+    label = "RCUs"
+  }
+
+  effector "delete-old-web-items" {
+    description = "Deletes from ${self.name} the oldest web items"
+    parameter "records_to_keep" {
+      type = "integer"
+      default = 3
+    }
+    steps = [
+      {
+        name: "Find largest index"
+        step: "shell"
+        command: join(" ", ["aws dynamodb query --table-name ${self.name}",
+          "--projection-expression SORT_KEY --max-items 1 --key-condition-expression HASH_KEY=:web",
+          "--expression-attribute-values '{\":web\":{\"S\":\"web\"}}' --no-scan-index-forward"])
+        env: local.aws_cli_env
+      },
+      "let map max_record = ${stdout}",
+      "let integer max_record_index = ${max_record.Items[0].SORT_KEY.N}",
+      "let keep_from_index = ${max_record_index} + 1 - ${records_to_keep}",
+
+      {
+        step : "let values_obj"
+        value : {
+          ":web" : {
+            S : "web"
+          }
+          ":keep_from_index" : {
+            N : tostring(keep_from_index)
+          }
+        }
+      },
+      "transform ${values_obj} | bash | set values",
+      "let condition = HASH_KEY=:web and SORT_KEY<:keep_from_index",
+      {
+        name: "Find records to delete"
+        step: "shell"
+        command: join(" ", ["aws dynamodb query --table-name ${self.name} ",
+          "--projection-expression HASH_KEY,SORT_KEY --key-condition-expression \"${condition}\"",
+          "--expression-attribute-values ${values}"])
+        env:  local.aws_cli_env
+      },
+
+      "let map data = ${stdout}",
+      {
+        step: "foreach key in ${data.Items}"
+        name: "Delete each record"
+        concurrency: 5    # allow up to 5 concurrent deletions
+        steps: [
+          "transform ${key} | bash | set key_string",
+          {
+            name: "Delete record ${key_string}"
+            step: "shell"
+            command: "aws dynamodb delete-item --table-name ${self.name} --key ${key_string}"
+            env: local.aws_cli_env
+          }
+        ]
+      },
+      "set-sensor data_count = -1"
+    ]
+  }
+
+  policy "delete-old-web-items-on-high-latency" {
+    steps = [
+      "invoke-effector delete-old-web-items"
+    ]
+    lock = "delete_policy_active"
+    condition = {
+      all: [
+        {
+          target: self.data_count,
+          greater-than : 10
+        }, {
+          target: aws_instance.node_server.request_latency,
+          greater-than: "300ms"
+        }
+      ]
+    }
+    triggers = [
+      "data_count",
+      {
+        entity: aws_instance.node_server,
+        sensor: "request_latency"
+      }
+    ]
+  }
+}
+
+maeztro extend resource "aws_iam_policy.data_table_policy" {
+  name = "Data Access Policy"
+  parent = maeztro.data_tier
+}
+
+
+maeztro extend resource "aws_dynamodb_table_item.data_table_item" {
+  position_in_parent = [ 540, 100 ]
+  name = "Data Items"
+}
+
+
+locals {
+  aws_cli_env = {
+    AWS_ACCESS_KEY_ID : var.aws_access_key_id
+    AWS_SECRET_ACCESS_KEY : var.aws_secret_access_key
+    AWS_DEFAULT_REGION: var.region
+  }
+}

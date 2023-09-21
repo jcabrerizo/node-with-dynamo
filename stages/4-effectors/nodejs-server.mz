@@ -1,0 +1,64 @@
+
+resource "maeztro" "web" {
+  name = "Web"
+  position_in_parent = [ 100, 100 ]
+
+  # add a sensor for the URL and a widget to show it
+  sensor "main_url" {
+    output = "http://${aws_instance.node_server.public_ip}:${var.port}"
+  }
+  widget sensor "main_url" {
+    label = "URL"
+  }
+}
+
+maeztro extend resource "aws_instance.node_server" {
+  name = "Web Server"
+  parent = maeztro.web
+  display_index = 0
+
+  # add a sensor for latency and a widget to show it
+  sensor "request_latency" {
+    steps = [
+      "http ${maeztro.web.main_url}"
+      "return ${output.duration}"
+    ]
+    period = "5s"
+    type = "duration"
+    on-error = [
+      "return null"
+    ]
+  }
+  widget sensor "request_latency" {
+    label = "Latency"
+  }
+
+  effector "restart-server" {
+    description = "Restarts the web server"
+    steps = [
+      "set-sensor status = RESTARTING",
+      "ssh sudo /tmp/restart.sh ${var.port}",
+      "set-sensor status = RUNNING"
+    ]
+    lock = "restart_effector_active"
+  }
+  sensor "status" {
+    output = "RUNNING"
+  }
+  widget sensor "status" {}
+}
+
+maeztro extend resource "aws_eip.node_server" {
+  parent = maeztro.web
+  display_index = 1
+}
+
+maeztro extend resource "aws_security_group.node_server" {
+  parent = maeztro.web
+  display_index = 2
+}
+
+maeztro extend resource "aws_key_pair.node_server" {
+  parent = maeztro.web
+  display_index = 3
+}

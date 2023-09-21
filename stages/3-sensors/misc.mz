@@ -1,0 +1,23 @@
+
+## Grouping of miscellaneous components
+
+
+# Misc Group
+
+resource "maeztro" "misc" {
+  position_in_parent = [ 320, 320 ]
+  name = "misc"
+}
+
+
+# Terraform Resources
+
+maeztro extend resource "random_string.salt_generated" {
+  parent = maeztro.misc
+  name = "Random Prefix"
+}
+
+maeztro extend resource "tls_private_key.ssh_key" {
+  parent = maeztro.misc
+  name = "SSH Key"
+}

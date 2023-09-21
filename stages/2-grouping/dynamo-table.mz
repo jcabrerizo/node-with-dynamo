@@ -1,0 +1,40 @@
+
+## Grouping of data table components
+##
+## This file will be called dynamo-table.mz in subsequent examples
+## to align with the TF filename.
+
+
+# Data Group
+
+## This is a new Maeztro resource (not managed by Terraform)
+
+resource "maeztro" "data_tier" {
+  name = "Data Tier"
+  position_in_parent = [ 320, 100 ]    # this line may be absent or have different values; it is only used for the UI
+}
+
+
+## These are the extensions Maeztro provides, so far only how they are grouped and positioned.
+## These resources are defined in the *.tf files and managed by Terraform.
+
+maeztro extend resource "aws_dynamodb_table.data_table" {
+  name = "Data Table"
+  parent = maeztro.data_tier
+}
+
+maeztro extend resource "aws_iam_policy.data_table_policy" {
+  name = "Data Access Policy"
+  parent = maeztro.data_tier
+}
+
+
+## This corresponds to the Terraform definition of the `count=3` items.
+## Maeztro automatically groups the instances under this group.
+## It could be placed inside the "maeztro.data" group but we leave it as top-level element,
+## simply giving it a position to the right of the data group and a more readable name.
+
+maeztro extend resource "aws_dynamodb_table_item.data_table_item" {
+  position_in_parent = [ 540, 100 ]
+  name = "Data Items"
+}

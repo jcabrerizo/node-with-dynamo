@@ -1,10 +1,13 @@
 # Local .terraform directories
 **/.terraform/*
-
+.idea
+.mz_state
 # .tfstate files
 *.tfstate
 *.tfstate.*
+.terraform.lock.hcl
 
+.terraform
 # Crash log files
 crash.log
 crash.*.log
@@ -32,3 +35,10 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# These paths can be used for local-only items not to be checked in
+local*
+working/
+ignore*/
+tmp/
+

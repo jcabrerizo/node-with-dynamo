@@ -1,0 +1,69 @@
+
+resource "maeztro" "data_tier" {
+  name = "Data Tier"
+  position_in_parent = [ 320, 100 ]    # this line may be absent or have different values; it is only used for the UI
+}
+
+maeztro extend resource "aws_dynamodb_table.data_table" {
+  name = "Data Table"
+  parent = maeztro.data_tier
+
+  sensor "data_count" {
+    steps = [
+      {
+        step: "shell aws dynamodb scan --table-name ${self.name} --select COUNT"
+        env:  local.aws_cli_env
+      },
+      "transform ${stdout} | type map",
+      "return ${Count}"
+    ]
+    period = "10s"
+  }
+  widget sensor "data_count" {
+    label = "Records"
+  }
+
+  sensor "avg_consumed_read" {
+    steps = [
+      "let now = ${workflow.util.now_instant}",
+      "transform ${now} | to_string | set now_str",
+      "let duration five_minutes = 5m",
+      "let five_minutes_ago = ${now} - ${five_minutes}",
+      "transform ${five_minutes_ago} | to_string | set five_minutes_ago_str",
+      {
+        step: "shell"
+        command: join(" ", ["aws cloudwatch get-metric-statistics",
+          "--namespace AWS/DynamoDB  --metric-name ConsumedReadCapacityUnits",
+          "--dimensions Name=TableName,Value=${self.name}  --statistics=Average",
+          "--start-time ${five_minutes_ago_str} --end-time ${now_str} --period 300"])
+        env: local.aws_cli_env
+      },
+      "transform ${stdout} | type map | set aws_stats",
+      "return ${aws_stats.Datapoints[0].Average}"
+    ]
+    period = "10s"
+  }
+  widget sensor "avg_consumed_read" {
+    label = "RCUs"
+  }
+}
+
+maeztro extend resource "aws_iam_policy.data_table_policy" {
+  name = "Data Access Policy"
+  parent = maeztro.data_tier
+}
+
+
+maeztro extend resource "aws_dynamodb_table_item.data_table_item" {
+  position_in_parent = [ 540, 100 ]
+  name = "Data Items"
+}
+
+
+locals {
+  aws_cli_env = {
+    AWS_ACCESS_KEY_ID : var.aws_access_key_id
+    AWS_SECRET_ACCESS_KEY : var.aws_secret_access_key
+    AWS_DEFAULT_REGION: var.region
+  }
+}
