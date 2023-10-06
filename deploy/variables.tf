@@ -11,6 +11,9 @@ variable "aws_access_key_id" {
 variable "aws_secret_access_key" {
   default = "<your-aws-secret-key>"       // replace with own access key
 }
+variable "aws_session_token" {
+  default = ""                            // replace with session token if used
+}
 
 variable "region" {
   default = "eu-north-1"                  // optionally replace with desired region; if changing, change ami_id

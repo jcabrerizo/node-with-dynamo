@@ -24,7 +24,7 @@ mz init --nickname node-with-dynamo
 This will register the project with the Maeztro server. The nickname is optional and makes it easier to identify the application. You should see output like:
 
 ```
-Creating a new Maeztro project from folder: /Users/alex/projects/node-with-dynamo/deploy
+Creating a new Maeztro project from folder: /Users/user/projects/node-with-dynamo/deploy
 
 Requested project name is: node-with-dynamo
 

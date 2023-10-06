@@ -10,12 +10,14 @@ const port = process.env.PORT;
 const region = process.env.REGION;
 const accessKeyId = process.env.ACCESS_KEY;
 const secretAccessKey = process.env.SECRET_ACCESS_KEY;
+const sessionToken = process.env.SESSION_TOKEN;
 const TableName = process.env.TABLE_NAME;
 
 let client = new AWS.DynamoDB({
     region: region,
     accessKeyId: accessKeyId,
     secretAccessKey: secretAccessKey,
+    sessionToken: sessionToken,
 });
 
 let count = -1;

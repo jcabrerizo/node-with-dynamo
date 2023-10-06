@@ -32,7 +32,7 @@ resource "aws_instance" "node_server" {
     inline = [
       "chmod +x /tmp/*sh",
       "sudo /tmp/create.sh | tee /tmp/create.log",
-      "sudo /tmp/configure.sh \"${var.port}\" \"${var.region}\" \"${var.aws_access_key_id}\" \"${var.aws_secret_access_key}\" \"${aws_dynamodb_table.data_table.name}\" | tee /tmp/configure.log",
+      "sudo /tmp/configure.sh \"${var.port}\" \"${var.region}\" \"${var.aws_access_key_id}\" \"${var.aws_secret_access_key}\" \"${var.aws_session_token}\" \"${aws_dynamodb_table.data_table.name}\" | tee /tmp/configure.log",
       "sudo /tmp/start.sh \"${var.port}\" | tee /tmp/start.log",
       "echo ${self.public_ip}"
     ]

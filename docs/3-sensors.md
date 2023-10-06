@@ -120,6 +120,7 @@ maeztro extend resource "aws_dynamodb_table.data_table" {
         env: {
           AWS_ACCESS_KEY_ID : var.aws_access_key_id
           AWS_SECRET_ACCESS_KEY : var.aws_secret_access_key
+          SESSION_TOKEN : var.aws_session_token
           AWS_DEFAULT_REGION: var.region
         }
       },
@@ -218,6 +219,7 @@ locals {
   aws_cli_env = {
     AWS_ACCESS_KEY_ID : var.aws_access_key_id
     AWS_SECRET_ACCESS_KEY : var.aws_secret_access_key
+    SESSION_TOKEN : var.aws_session_token
     AWS_DEFAULT_REGION: var.region
   }
 }
